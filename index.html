@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crash Predictor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background-color: #000;
+      color: #fff;
+    }
+    #predictorBox {
+      max-width: 500px;
+      margin: 20px auto;
+      background: #111;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #000;
+    }
+    h3 {
+      margin-top: 0;
+      text-align: center;
+    }
+    input, textarea, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    button {
+      background-color: #00bcd4;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0097a7;
+    }
+    #predictorOutput {
+      margin-top: 15px;
+      font-size: 14px;
+      white-space: pre-wrap;
+      background: #222;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    canvas {
+      width: 100% !important;
+      max-height: 200px;
+      margin-top: 15px;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      #predictorBox {
+        width: 100%;
+        padding: 10px;
+      }
+      input, textarea, select, button {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="predictorBox">
+  <h3>🎯 Crash Predictor</h3>
+  <select id="modeSelect">
+    <option value="historique">📘 Historique (image ou manuel)</option>
+    <option value="gros">🔮 Gros multiplicateur &gt;10x</option>
+  </select>
+  <textarea id="manualHistory" placeholder="Multiplicateurs (ex: 1.03x, 2.56x, 12.4x, ...)"></textarea>
+  <input type="text" id="lastTourInput" placeholder="Numéro du dernier tour (ex: 1441010)" inputmode="numeric" />
+  <input type="text" id="bigLine" placeholder="Ex: Tour 1441010 53.62x 10:00:20" />
+  <input type="text" id="serverName" placeholder="Nom du serveur (ex: 8WOvzn...)" />
+  <button onclick="runPrediction()">📈 Lancer la prédiction</button>
+  <div id="predictorOutput">Résultats...</div>
+  <canvas id="chartHistory" height="100"></canvas>
+</div>
+<script>
+  function runPrediction() {
+    const mode = document.getElementById('modeSelect').value;
+    const rawHistory = document.getElementById('manualHistory').value.trim();
+    const mults = rawHistory.split(",").map(x => parseFloat(x)).filter(x => !isNaN(x));
+    if (!rawHistory || mults.length < 5) return alert("Ajoute au moins 5 multiplicateurs valides.");
+    drawChart(mults);
+    if (mode === "historique") {
+      const lastTour = parseInt(document.getElementById('lastTourInput').value.trim());
+      if (!lastTour) return alert("Entre le numéro du dernier tour.");
+      const predictionValue = mults[mults.length - 2];
+      const n2Tour = lastTour + 2;
+      const is2x = predictionValue >= 2;
+      const is3x = predictionValue >= 3;
+      const conf = (is3x ? 95 : (is2x ? 90 : 60));
+      document.getElementById('predictorOutput').textContent =
+        `📘 Mode Historique\nDernier tour: ${lastTour}\n🧠 Prédiction pour Tour ${n2Tour}:\n` +
+        `→ Multiplicateur estimé : ${predictionValue}x\n` +
+        `→ Atteint x2 ? ${is2x ? '✅' : '❌'}\n→ Atteint x3 ? ${is3x ? '✅' : '❌'}\n\n🎯 Taux de confiance estimé : ${conf}%`;
+    } else if (mode === "gros") {
+      const bigLine = document.getElementById('bigLine').value.trim();
+      const server = document.getElementById('serverName').value.trim();
+      const match = bigLine.match(/Tour\s+(\d+)\s+([\d.]+)x/i);
+      if (!match) return alert("Format invalide pour gros multiplicateur.");
+      if (!server) return alert("Ajoute le nom du serveur.");
+      const tour = parseInt(match[1]);
+      const bigMult = parseFloat(match[2]);
+      if (bigMult < 10) return alert("Le multiplicateur n'est pas >10x");
+      const idx = mults.findIndex(x => x === bigMult);
+      if (idx === -1 || idx + 6 >= mults.length) {
+        return alert("Pas assez de données après ce multiplicateur.");
+      }
+      const future = mults.slice(idx + 2, idx + 7);
+      const results = [];
+      let x2c = 0, x3c = 0;
+      for (let i = 0; i < future.length; i++) {
+        const val = future[i];
+        const tnum = tour + (i + 2);
+        if (val >= 2) x2c++;
+        if (val >= 3) x3c++;
+        results.push(`n+${i + 2} → Tour ${tnum} : ${val}x`);
+      }
+      const x2conf = Math.min(100, Math.round((x2c / 5) * 100));
+      const x3conf = Math.min(100, Math.round((x3c / 5) * 100));
+      document.getElementById('predictorOutput').textContent =
+        `🔮 Mode Gros multiplicateur\nTour: ${tour} (${bigMult}x)\nServeur: ${server}\n\n` +
+        results.join("\n") +
+        `\n\n📊 Taux de confiance:\n- x2+ : ${x2conf}%\n- x3+ : ${x3conf}%`;
+    }
+  }
+  function drawChart(data) {
+    const ctx = document.getElementById('chartHistory').getContext('2d');
+    if (window.historyChart) window.historyChart.destroy();
+    window.historyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map((_, i) => i + 1),
+        datasets: [{
+          label: "Multiplicateurs",
+          data: data,
+          borderColor: 'cyan',
+          backgroundColor: 'rgba(0,255,255,0.1)'
+        }]
+      },
+      options: {
+        scales: {
+          y: { suggestedMin: 0, suggestedMax: 50 }
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
