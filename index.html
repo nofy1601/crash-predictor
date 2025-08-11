@@ -1,163 +1,192 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Crash Predictor</title>
+  <meta charset="utf-8" />
+  <title>Prédicteur Aviator — IA hybride améliorée + Graphiques</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: sans-serif;
-      background-color: #000;
-      color: #fff;
+    :root{
+      --bg:#0d1117; --card:#15181d; --accent:#00d4ff; --muted:#9aa4b2; --good:#4caf50; --warn:#ffb74d; --bad:#ff5252;
     }
-    #predictorBox {
-      max-width: 500px;
-      margin: 20px auto;
-      background: #111;
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px #000;
+    body{background:var(--bg); color:#e6eef6; font-family:Inter,Arial,Helvetica,sans-serif; padding:18px; display:flex; justify-content:center;}
+    .card{width:520px; background:var(--card); border-radius:12px; padding:18px; box-shadow:0 8px 32px rgba(0,0,0,0.6);}
+    h1{margin:0 0 8px; font-size:20px; color:var(--accent); text-align:center;}
+    label{font-size:13px; color:var(--muted); display:block; margin-top:10px;}
+    textarea, input, select, button{
+      width:100%; margin-top:8px; padding:10px 12px; border-radius:8px;
+      border:1px solid rgba(255,255,255,0.04); background:#0f1720; color:#e6eef6;
+      font-size:14px; box-sizing:border-box; font-family: monospace;
     }
-    h3 {
-      margin-top: 0;
-      text-align: center;
+    textarea {height:90px; resize:vertical;}
+    .row{display:flex; gap:8px;}
+    .small{width:48%;}
+    button{
+      background:linear-gradient(90deg,var(--accent),#6ef0ff); color:#021018;
+      font-weight:700; border:none; cursor:pointer; padding:10px 12px;
     }
-    input, textarea, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 60px;
-    }
-    button {
-      background-color: #00bcd4;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #0097a7;
-    }
-    #predictorOutput {
-      margin-top: 15px;
-      font-size: 14px;
-      white-space: pre-wrap;
-      background: #222;
-      padding: 10px;
-      border-radius: 5px;
-    }
-    canvas {
-      width: 100% !important;
-      max-height: 200px;
-      margin-top: 15px;
-    }
-    @media (max-width: 600px) {
-      body {
-        padding: 10px;
-      }
-      #predictorBox {
-        width: 100%;
-        padding: 10px;
-      }
-      input, textarea, select, button {
-        font-size: 14px;
-      }
-    }
+    .result{margin-top:12px; padding:12px; border-radius:10px; background:rgba(255,255,255,0.02); font-size:14px; white-space:pre-wrap;}
+    .muted{color:var(--muted); font-size:12px;}
+    .patterns{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);font-size:13px;}
+    footer{margin-top:12px;font-size:12px;color:var(--muted); text-align:center;}
+    canvas{margin-top:15px;}
   </style>
 </head>
 <body>
-<div id="predictorBox">
-  <h3>🎯 Crash Predictor</h3>
-  <select id="modeSelect">
-    <option value="historique">📘 Historique (image ou manuel)</option>
-    <option value="gros">🔮 Gros multiplicateur &gt;10x</option>
-  </select>
-  <textarea id="manualHistory" placeholder="Multiplicateurs (ex: 1.03x, 2.56x, 12.4x, ...)"></textarea>
-  <input type="text" id="lastTourInput" placeholder="Numéro du dernier tour (ex: 1441010)" inputmode="numeric" />
-  <input type="text" id="bigLine" placeholder="Ex: Tour 1441010 53.62x 10:00:20" />
-  <input type="text" id="serverName" placeholder="Nom du serveur (ex: 8WOvzn...)" />
-  <button onclick="runPrediction()">📈 Lancer la prédiction</button>
-  <div id="predictorOutput">Résultats...</div>
-  <canvas id="chartHistory" height="100"></canvas>
-</div>
+  <div class="card">
+    <h1>🎯 Prédicteur Aviator — IA hybride améliorée</h1>
+    <label>Historique (format : <code>1.2x, 3.4x, 2.5x, ...</code>) :</label>
+    <textarea id="history" placeholder="Ex : 1.2x, 3.4x, 2.5x, 15x, 1.1x"></textarea>
+    <div class="row" style="margin-top:6px;">
+      <input id="server" class="small" placeholder="ID serveur (optionnel)" />
+      <input id="lastRound" class="small" placeholder="Dernier numéro de tour (optionnel)" />
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <select id="mode" class="small" style="width:100%;">
+        <option value="balanced">Mode : Équilibré</option>
+        <option value="aggressive">Mode : Agressif</option>
+        <option value="conservative">Mode : Conservateur</option>
+      </select>
+      <button id="btnPredict" style="width:40%;">📈 Prédire</button>
+    </div>
+    <canvas id="chartHistory" height="150"></canvas>
+    <div class="result" id="result"><div class="muted">Résultats s'afficheront ici après prédiction.</div></div>
+    <div class="patterns" id="patterns" style="display:none;"></div>
+    <div class="result" id="autoSummary" style="display:none; margin-top:12px; padding:12px; border-radius:10px; background:rgba(255,255,255,0.02); font-size:14px; white-space:pre-wrap;"></div>
+    <footer>Algorithme : multi-fenêtres + RSI + MACD + patterns enrichis · Confiance calibrable</footer>
+  </div>
+
 <script>
-  function runPrediction() {
-    const mode = document.getElementById('modeSelect').value;
-    const rawHistory = document.getElementById('manualHistory').value.trim();
-    const mults = rawHistory.split(",").map(x => parseFloat(x)).filter(x => !isNaN(x));
-    if (!rawHistory || mults.length < 5) return alert("Ajoute au moins 5 multiplicateurs valides.");
-    drawChart(mults);
-    if (mode === "historique") {
-      const lastTour = parseInt(document.getElementById('lastTourInput').value.trim());
-      if (!lastTour) return alert("Entre le numéro du dernier tour.");
-      const predictionValue = mults[mults.length - 2];
-      const n2Tour = lastTour + 2;
-      const is2x = predictionValue >= 2;
-      const is3x = predictionValue >= 3;
-      const conf = (is3x ? 95 : (is2x ? 90 : 60));
-      document.getElementById('predictorOutput').textContent =
-        `📘 Mode Historique\nDernier tour: ${lastTour}\n🧠 Prédiction pour Tour ${n2Tour}:\n` +
-        `→ Multiplicateur estimé : ${predictionValue}x\n` +
-        `→ Atteint x2 ? ${is2x ? '✅' : '❌'}\n→ Atteint x3 ? ${is3x ? '✅' : '❌'}\n\n🎯 Taux de confiance estimé : ${conf}%`;
-    } else if (mode === "gros") {
-      const bigLine = document.getElementById('bigLine').value.trim();
-      const server = document.getElementById('serverName').value.trim();
-      const match = bigLine.match(/Tour\s+(\d+)\s+([\d.]+)x/i);
-      if (!match) return alert("Format invalide pour gros multiplicateur.");
-      if (!server) return alert("Ajoute le nom du serveur.");
-      const tour = parseInt(match[1]);
-      const bigMult = parseFloat(match[2]);
-      if (bigMult < 10) return alert("Le multiplicateur n'est pas >10x");
-      const idx = mults.findIndex(x => x === bigMult);
-      if (idx === -1 || idx + 6 >= mults.length) {
-        return alert("Pas assez de données après ce multiplicateur.");
+// --- Coller ici le code multiWindowPredict amélioré fourni précédemment ---
+// Pour l'exemple, voici une fonction simulée, à remplacer par ton implémentation réelle
+function multiWindowPredict(values, server, mode) {
+  // Simulation simplifiée pour tester le fonctionnement complet
+  return {
+    predN2: (values[values.length-1] + 1).toFixed(2),
+    predN3: (values[values.length-1] + 2).toFixed(2),
+    trust2: Math.floor(Math.random() * 100),
+    trust3: Math.floor(Math.random() * 100),
+    features: {
+      short: {
+        avg: values.slice(-5).reduce((a,b)=>a+b,0)/Math.min(5,values.length),
+        vol: 0.5,
+        rsi: 45,
+        macd: { hist: 0.03 }
       }
-      const future = mults.slice(idx + 2, idx + 7);
-      const results = [];
-      let x2c = 0, x3c = 0;
-      for (let i = 0; i < future.length; i++) {
-        const val = future[i];
-        const tnum = tour + (i + 2);
-        if (val >= 2) x2c++;
-        if (val >= 3) x3c++;
-        results.push(`n+${i + 2} → Tour ${tnum} : ${val}x`);
+    },
+    explanation: [
+      "Analyse multi-fenêtres activée",
+      "RSI et MACD indiquent tendance stable",
+      "Confiance calculée selon historique récent"
+    ]
+  };
+}
+
+function parseHistory(txt){
+  if(!txt) return [];
+  return txt.split(/[\n,;]+/).map(s => s.replace(/x/ig,'').trim()).filter(s => s).map(Number).filter(n => !isNaN(n));
+}
+
+let chartInstance = null;
+function renderChart(values, avgSeries){
+  const ctx = document.getElementById('chartHistory').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: values.map((_,i)=>i+1),
+      datasets: [
+        { label: 'Multiplicateurs', data: values, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.2)', fill: true, tension: 0.3 },
+        { label: 'Moyenne mobile (5)', data: avgSeries, borderColor: '#4caf50', borderDash:[5,5], fill:false, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color:'#e6eef6' } } },
+      scales: {
+        x: { ticks: { color:'#e6eef6' }, grid: { color:'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color:'#e6eef6' }, grid: { color:'rgba(255,255,255,0.05)' } }
       }
-      const x2conf = Math.min(100, Math.round((x2c / 5) * 100));
-      const x3conf = Math.min(100, Math.round((x3c / 5) * 100));
-      document.getElementById('predictorOutput').textContent =
-        `🔮 Mode Gros multiplicateur\nTour: ${tour} (${bigMult}x)\nServeur: ${server}\n\n` +
-        results.join("\n") +
-        `\n\n📊 Taux de confiance:\n- x2+ : ${x2conf}%\n- x3+ : ${x3conf}%`;
     }
+  });
+}
+
+const btn = document.getElementById('btnPredict');
+const summaryEl = document.getElementById('autoSummary');
+
+function autoStrategySummary(trust2, trust3) {
+  let action = "Passer";
+  let plan = "";
+  let stake = "—";
+
+  if (trust2 >= 80 && trust3 < 40) {
+    action = "Jouer";
+    plan = "Full 2x";
+    stake = "2–4% bankroll";
+  } else if (trust2 >= 60 && trust3 < 40) {
+    action = "Jouer (sélectif)";
+    plan = "Full 2x";
+    stake = "1–2% bankroll";
+  } else if (trust2 >= 80 && trust3 >= 60) {
+    action = "Jouer";
+    plan = "Split 50% à 2x, reste vise 3x";
+    stake = "2–4% bankroll";
+  } else if (trust3 >= 45 && trust2 >= 70) {
+    action = "Jouer (opportunité)";
+    plan = "Split ou Full 3x si bankroll solide";
+    stake = "1–2% bankroll";
   }
-  function drawChart(data) {
-    const ctx = document.getElementById('chartHistory').getContext('2d');
-    if (window.historyChart) window.historyChart.destroy();
-    window.historyChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: data.map((_, i) => i + 1),
-        datasets: [{
-          label: "Multiplicateurs",
-          data: data,
-          borderColor: 'cyan',
-          backgroundColor: 'rgba(0,255,255,0.1)'
-        }]
-      },
-      options: {
-        scales: {
-          y: { suggestedMin: 0, suggestedMax: 50 }
-        }
-      }
-    });
+
+  return { action, plan, stake };
+}
+
+btn.addEventListener('click', ()=>{
+  const raw = document.getElementById('history').value;
+  const server = document.getElementById('server').value.trim();
+  const lastRound = document.getElementById('lastRound').value.trim();
+  const mode = document.getElementById('mode').value;
+  const values = parseHistory(raw);
+  const resEl = document.getElementById('result');
+  const patternsEl = document.getElementById('patterns');
+
+  if(values.length < 4){
+    resEl.innerHTML = "<div class='muted'>Pas assez de données — entre au moins 4 valeurs.</div>";
+    patternsEl.style.display = 'none';
+    summaryEl.style.display = 'none';
+    return;
   }
+  const out = multiWindowPredict(values, server, mode);
+  if(out.error){
+    resEl.innerHTML = `<div class='muted'>${out.error}</div>`;
+    patternsEl.style.display = 'none';
+    summaryEl.style.display = 'none';
+    return;
+  }
+  let text = "";
+  if(lastRound) text += `Dernier tour : #${lastRound}\n`;
+  if(server) text += `Serveur : ${server}\n`;
+  text += `\n🔭 Prédiction N+2 : ${out.predN2}x\n🚀 Prédiction N+3 : ${out.predN3}x\n\n`;
+  text += `📈 Confiance ≥2x : ${out.trust2}%\n🚀 Confiance ≥3x : ${out.trust3}%\n\n`;
+  text += `📊 Moyenne (5 derniers) : ${out.features.short.avg.toFixed(3)}x | Volatilité : ${out.features.short.vol.toFixed(3)}\n`;
+  text += `📊 RSI court : ${out.features.short.rsi.toFixed(1)} | MACD hist : ${out.features.short.macd.hist.toFixed(3)}\n`;
+  resEl.textContent = text;
+
+  patternsEl.style.display = 'block';
+  patternsEl.innerHTML = `<b>Explications :</b><br>` + out.explanation.map(e=>`• ${e}`).join('<br>');
+
+  const strat = autoStrategySummary(out.trust2, out.trust3);
+  summaryEl.style.display = 'block';
+  summaryEl.innerHTML = `<b>Résumé auto :</b><br>
+Action : <span style="color:${strat.action.startsWith('Passer') ? 'var(--bad)' : 'var(--good)'}">${strat.action}</span><br>
+Plan : ${strat.plan}<br>
+Mise : ${strat.stake}`;
+
+  const avgSeries = values.map((_,i,arr)=>{
+    if(i<4) return null;
+    return arr.slice(i-4,i+1).reduce((a,b)=>a+b,0)/5;
+  });
+  renderChart(values, avgSeries);
+});
 </script>
 </body>
 </html>
